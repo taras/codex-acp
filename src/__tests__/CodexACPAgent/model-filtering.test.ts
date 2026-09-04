@@ -138,6 +138,7 @@ describe("Model filtering", () => {
         vi.spyOn(codexAcpClient, "authRequired").mockResolvedValue(false);
         vi.spyOn(codexAcpClient, "newSession").mockResolvedValue({
             sessionId: "session-id",
+            threadId: "session-id",
             currentModelId: "gpt-5.2[medium]",
             models,
             collaborationMode: "default",

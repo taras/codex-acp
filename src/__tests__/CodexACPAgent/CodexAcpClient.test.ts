@@ -563,6 +563,97 @@ describe('ACP server test', { timeout: 40_000 }, () => {
         });
     });
 
+    it('reports the created thread id as agentSessionId on every new session', async () => {
+        const mockFixture = createCodexMockTestFixture();
+        const codexAcpAgent = mockFixture.getCodexAcpAgent();
+        const codexAcpClient = mockFixture.getCodexAcpClient();
+        const codexAppServerClient = mockFixture.getCodexAppServerClient();
+
+        vi.spyOn(codexAcpClient, "authRequired").mockResolvedValue(false);
+        vi.spyOn(codexAcpClient, "getAccount").mockResolvedValue({account: null, requiresOpenaiAuth: false});
+        vi.spyOn(codexAppServerClient, "skillsExtraRootsSet").mockResolvedValue(undefined);
+        vi.spyOn(codexAppServerClient, "listSkills").mockResolvedValue({data: []});
+        const startedThreadIds = ["thread-alpha", "thread-beta"];
+        vi.spyOn(codexAppServerClient, "threadStart").mockImplementation(async () => ({
+            thread: {id: startedThreadIds.shift()},
+            model: "gpt-5",
+            modelProvider: "openai",
+            reasoningEffort: "medium",
+            serviceTier: null,
+        } as any));
+        vi.spyOn(codexAppServerClient, "listModels").mockResolvedValue({
+            data: [createTestModel({id: "gpt-5"})],
+            nextCursor: null,
+        });
+
+        const first = await codexAcpAgent.newSession({cwd: "/workspace", mcpServers: []});
+        const second = await codexAcpAgent.newSession({cwd: "/workspace", mcpServers: []});
+
+        expect(first._meta).toMatchObject({agentSessionId: "thread-alpha"});
+        expect(second._meta).toMatchObject({agentSessionId: "thread-beta"});
+        expect(first._meta?.["agentSessionId"]).toBe(first.sessionId);
+        expect(second._meta?.["agentSessionId"]).toBe(second.sessionId);
+    });
+
+    it('reports the reopened thread id as agentSessionId when resuming and loading', async () => {
+        const mockFixture = createCodexMockTestFixture();
+        const codexAcpAgent = mockFixture.getCodexAcpAgent();
+        const codexAcpClient = mockFixture.getCodexAcpClient();
+        const codexAppServerClient = mockFixture.getCodexAppServerClient();
+
+        vi.spyOn(codexAcpClient, "authRequired").mockResolvedValue(false);
+        vi.spyOn(codexAcpClient, "getAccount").mockResolvedValue({account: null, requiresOpenaiAuth: false});
+        vi.spyOn(codexAppServerClient, "skillsExtraRootsSet").mockResolvedValue(undefined);
+        vi.spyOn(codexAppServerClient, "listSkills").mockResolvedValue({data: []});
+        vi.spyOn(codexAppServerClient, "threadResume").mockImplementation(async ({threadId}) => ({
+            thread: {id: threadId},
+            model: "gpt-5",
+            modelProvider: "openai",
+            reasoningEffort: "medium",
+            serviceTier: null,
+        } as any));
+        vi.spyOn(codexAppServerClient, "threadRead").mockImplementation(async ({threadId}) => ({
+            thread: {id: threadId, turns: []},
+        } as any));
+        vi.spyOn(codexAppServerClient, "listModels").mockResolvedValue({
+            data: [createTestModel({id: "gpt-5"})],
+            nextCursor: null,
+        });
+
+        const resumed = await codexAcpAgent.resumeSession({sessionId: "resume-id", cwd: "/workspace"});
+        const loaded = await codexAcpAgent.loadSession({sessionId: "load-id", cwd: "/workspace", mcpServers: []});
+
+        expect(resumed._meta).toMatchObject({agentSessionId: "resume-id"});
+        expect(loaded._meta).toMatchObject({agentSessionId: "load-id"});
+    });
+
+    it('reports the thread id the app server confirmed rather than the requested one', async () => {
+        const mockFixture = createCodexMockTestFixture();
+        const codexAcpAgent = mockFixture.getCodexAcpAgent();
+        const codexAcpClient = mockFixture.getCodexAcpClient();
+        const codexAppServerClient = mockFixture.getCodexAppServerClient();
+
+        vi.spyOn(codexAcpClient, "authRequired").mockResolvedValue(false);
+        vi.spyOn(codexAcpClient, "getAccount").mockResolvedValue({account: null, requiresOpenaiAuth: false});
+        vi.spyOn(codexAppServerClient, "skillsExtraRootsSet").mockResolvedValue(undefined);
+        vi.spyOn(codexAppServerClient, "listSkills").mockResolvedValue({data: []});
+        vi.spyOn(codexAppServerClient, "threadResume").mockResolvedValue({
+            thread: {id: "thread-canonical"},
+            model: "gpt-5",
+            modelProvider: "openai",
+            reasoningEffort: "medium",
+            serviceTier: null,
+        } as any);
+        vi.spyOn(codexAppServerClient, "listModels").mockResolvedValue({
+            data: [createTestModel({id: "gpt-5"})],
+            nextCursor: null,
+        });
+
+        const resumed = await codexAcpAgent.resumeSession({sessionId: "thread-requested", cwd: "/workspace"});
+
+        expect(resumed._meta).toMatchObject({agentSessionId: "thread-canonical"});
+    });
+
     it('restores collaboration mode for resumed and loaded sessions', async () => {
         const mockFixture = createCodexMockTestFixture();
         const codexAcpAgent = mockFixture.getCodexAcpAgent();
@@ -3156,6 +3247,7 @@ describe('ACP server test', { timeout: 40_000 }, () => {
         vi.spyOn(codexAcpClient, "newSession")
             .mockResolvedValueOnce({
                 sessionId: "session-1",
+                threadId: "session-1",
                 currentModelId,
                 models: [model],
                 collaborationMode: "default",
@@ -3163,6 +3255,7 @@ describe('ACP server test', { timeout: 40_000 }, () => {
             })
             .mockResolvedValueOnce({
                 sessionId: "session-2",
+                threadId: "session-2",
                 currentModelId,
                 models: [model],
                 collaborationMode: "default",
@@ -3222,6 +3315,7 @@ describe('ACP server test', { timeout: 40_000 }, () => {
             });
         vi.spyOn(codexAcpClient, "newSession").mockResolvedValue({
             sessionId: "openai-session",
+            threadId: "openai-session",
             currentModelId,
             models: [model],
             collaborationMode: "default",
@@ -3275,6 +3369,7 @@ describe('ACP server test', { timeout: 40_000 }, () => {
             });
         vi.spyOn(codexAcpClient, "newSession").mockResolvedValue({
             sessionId: "custom-provider-session",
+            threadId: "custom-provider-session",
             currentModelId,
             models: [model],
             collaborationMode: "default",

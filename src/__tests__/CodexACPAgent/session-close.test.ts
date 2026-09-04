@@ -469,6 +469,7 @@ async function createSession(options: {
     vi.spyOn(codexAcpClient, "listSkills").mockResolvedValue({data: []});
     vi.spyOn(codexAcpClient, "newSession").mockResolvedValue({
         sessionId,
+        threadId: sessionId,
         currentModelId: "model-id[medium]",
         models: [model],
         collaborationMode: "default",
@@ -516,6 +517,7 @@ function createCompletedTurn(turnId: string): TurnStartResponse["turn"] {
 function createSessionMetadata(): SessionMetadata {
     return {
         sessionId,
+        threadId: sessionId,
         currentModelId: "model-id[medium]",
         models: [createTestModel()],
         collaborationMode: "default",

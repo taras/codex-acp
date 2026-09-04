@@ -475,6 +475,7 @@ export class CodexAcpClient {
         const currentModelId = this.createModelId(codexModels, response.model, response.reasoningEffort).toString();
         return {
             sessionId: request.sessionId,
+            threadId: response.thread.id,
             currentModelId: currentModelId,
             models: codexModels,
             collaborationMode: this.getCollaborationMode(response.thread.id),
@@ -503,6 +504,7 @@ export class CodexAcpClient {
         const currentModelId = this.createModelId(codexModels, response.model, response.reasoningEffort).toString();
         return {
             sessionId: request.sessionId,
+            threadId: response.thread.id,
             currentModelId: currentModelId,
             models: codexModels,
             collaborationMode: this.getCollaborationMode(response.thread.id),
@@ -530,6 +532,7 @@ export class CodexAcpClient {
         const currentModelId = this.createModelId(codexModels, response.model, response.reasoningEffort).toString();
         return {
             sessionId: response.thread.id,
+            threadId: response.thread.id,
             currentModelId: currentModelId,
             models: codexModels,
             collaborationMode: this.getCollaborationMode(response.thread.id),
@@ -1233,6 +1236,11 @@ export type JsonObject = { [key in string]?: JsonValue }
 
 export type SessionMetadata = {
     sessionId: string,
+    /**
+     * The thread id the app server confirmed for this session. Echoing back the requested id would
+     * assert an identity the app server never acknowledged.
+     */
+    threadId: string,
     currentModelId: string,
     models: Model[],
     collaborationMode: ModeKind,

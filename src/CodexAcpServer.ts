@@ -122,6 +122,11 @@ import {
 
 export interface SessionState {
     sessionId: string,
+    /**
+     * The thread id the app server confirmed for this session, reported to clients as
+     * `_meta.agentSessionId` so they can address the conversation natively without guessing.
+     */
+    threadId: string,
     currentModelId: string,
     availableModels: Array<Model>,
     supportedReasoningEfforts: Array<ReasoningEffortOption>,
@@ -617,6 +622,7 @@ export class CodexAcpServer {
         const currentModelSupportsFast = modelSupportsFast(currentModel);
         const sessionState: SessionState = {
             sessionId: sessionId,
+            threadId: sessionMetadata.threadId,
             currentModelId: currentModelId,
             availableModels: models,
             supportedReasoningEfforts: currentModel?.supportedReasoningEfforts ?? [],
@@ -718,6 +724,7 @@ export class CodexAcpServer {
             models: modelState,
             modes: modeState,
             ...this.createSessionConfigOptionsResponse(this.getSessionState(sessionId)),
+            ...this.createNativeSessionIdentityResponse(sessionId),
         };
     }
 
@@ -737,6 +744,7 @@ export class CodexAcpServer {
             models: modelState,
             modes: modeState,
             ...this.createSessionConfigOptionsResponse(this.getSessionState(sessionId)),
+            ...this.createNativeSessionIdentityResponse(sessionId),
         };
     }
 
@@ -850,6 +858,7 @@ export class CodexAcpServer {
             models: modelState,
             modes: modeState,
             ...this.createSessionConfigOptionsResponse(this.getSessionState(sessionId)),
+            ...this.createNativeSessionIdentityResponse(sessionId),
         };
     }
 
@@ -1481,6 +1490,19 @@ export class CodexAcpServer {
         };
     }
 
+    /**
+     * Reports the app-server thread id a client needs to address this conversation with the Codex
+     * CLI directly. Clients read native identity from `_meta`, so a top-level `sessionId` alone
+     * leaves them unable to distinguish a real identity from one they invented.
+     */
+    private createNativeSessionIdentityResponse(sessionId: SessionId): { _meta?: { agentSessionId: string } } {
+        const threadId = this.sessions.get(sessionId)?.threadId;
+        if (threadId === undefined) {
+            return {};
+        }
+        return {_meta: {agentSessionId: threadId}};
+    }
+
     private isSessionConfigEnabled(): boolean {
         // Temporarily disabled for JB IDEs 2026.1 due to issues in session_config (LLM-28118)
         return !isJetBrains2026_1Client(this.clientInfo);
@@ -1634,6 +1656,7 @@ export class CodexAcpServer {
         const currentModelSupportsFast = modelSupportsFast(currentModel);
         const sessionState: SessionState = {
             sessionId: sessionId,
+            threadId: sessionMetadata.threadId,
             currentModelId: currentModelId,
             availableModels: models,
             supportedReasoningEfforts: currentModel?.supportedReasoningEfforts ?? [],

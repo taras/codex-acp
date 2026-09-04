@@ -427,6 +427,7 @@ export function createTestSessionState(overrides?: Partial<SessionState>): Sessi
         cwd: "/test/cwd",
         additionalDirectories: [],
         sessionId: "session-id",
+        threadId: "session-id",
         currentModelId: "model-id[effort]",
         availableModels: [],
         supportedReasoningEfforts: [],
